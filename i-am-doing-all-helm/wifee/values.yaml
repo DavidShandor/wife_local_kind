@@ -8,9 +8,9 @@ app:
 deployment:
   replicas: 2
   image:
-    repository: 644435390668.dkr.ecr.us-east-1.amazonaws.com/shandor-develeap
+    repository: ghcr.io/davidshandor/wifee
     pullPolicy: IfNotPresent
-    tag: "1.0.10"
+    tag: "1.0.0"
 
 service:
   name: wifee-service

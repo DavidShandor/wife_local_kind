@@ -1,13 +1,13 @@
 image:
-  repository: iamdoingall
-  tag: dev
+  repository: ghcr.io/davidshandor/wifee
+  tag: "1.0.0"
   pullPolicy: IfNotPresent
 
 deployment:
   replicaCount: 1
   image:
-    repository: iamdoingall
-    tag: dev
+    repository: ghcr.io/davidshandor/wifee
+    tag: "1.0.0"
     pullPolicy: IfNotPresent
 
 service:
