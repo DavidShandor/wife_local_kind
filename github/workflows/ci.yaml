@@ -1,0 +1,91 @@
+name: CI
+permissions:
+  packages: write        # כדי לדחוף ל-GHCR
+  contents: write        # אם הוורקפלואו מעדכן קבצים/טאגים בריפו. אחרת אפשר read
+  
+on:
+  push:
+    branches: [ main, "**" ]
+    paths:
+      - "i-am-doing-all/**"
+      - ".github/workflows/**"
+  pull_request:
+    paths:
+      - "i-am-doing-all/**"
+
+env:
+  IMAGE_NAME: wifee
+  BASE_VERSION: "1.0"  # כמו ב-Jenkinsfile – נגדיל PATCH
+
+jobs:
+  build-test-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write     # כדי לתייג
+      packages: write     # כדי לדחוף ל-GHCR  <== חשוב
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Compute image tag (1.0.x)
+        id: ver
+        shell: bash
+        run: |
+          git fetch --tags --force
+          LAST=$(git tag --list "${BASE_VERSION}.*" --sort=-v:refname | head -n1 || true)
+          if [ -z "$LAST" ]; then PATCH=0; else PATCH=$(echo "$LAST" | awk -F. '{print $3+1}'); fi
+          echo "TAG=${BASE_VERSION}.${PATCH}" >> $GITHUB_ENV
+          echo "tag=${BASE_VERSION}.${PATCH}" >> $GITHUB_OUTPUT
+          echo "Computed tag: ${BASE_VERSION}.${PATCH}"
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}   # packages:write  ✔︎
+      # בניית דוקר ופוש ל-GHCR (build-push-action)
+      - name: Build & push image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./i-am-doing-all-main
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.ver.outputs.tag }}
+          labels: |
+            org.opencontainers.image.source=${{ github.repository }}
+
+      # תיוג גיט (רק ב-main)
+      - name: Create & push git tag
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config user.email "github-actions@users.noreply.github.com"
+          git config user.name  "github-actions"
+          git tag -a "${TAG}" -m "version ${TAG}" || true
+          git push origin "${TAG}" || true
+
+      # עדכון values.yaml/values-dev.yaml של הצ'ארט במונוריפו
+      - name: Bump image repo+tag in Helm values (monorepo)
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -e
+          IMG="ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}"
+          for f in i-am-doing-all-helm/wifee/values.yaml i-am-doing-all-helm/wifee/values-dev.yaml; do
+            if [ -f "$f" ]; then
+              # עדכון image.repository / image.tag
+              sed -i -E "s|(^[[:space:]]*repository:[[:space:]]*).*$|\\1${IMG}|" "$f" || true
+              sed -i -E "s|(^[[:space:]]*tag:[[:space:]]*).*$|\\1\"${TAG}\"|" "$f" || true
+              # אם יש deployment.image.* – נעדכן גם
+              sed -i -E "s|(^[[:space:]]*repository:[[:space:]]*)(iamdoingall|ghcr.io/[^[:space:]]*)|\\1${IMG}|" "$f" || true
+            fi
+          done
+          git add i-am-doing-all-helm/wifee/*.yaml
+          git commit -m "chore(helm): bump image to ${TAG}" || echo "no changes"
+          git push
+    outputs:
+      tag:   ${{ steps.ver.outputs.tag }}
+      image: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
