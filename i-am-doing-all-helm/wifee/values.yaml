@@ -10,7 +10,7 @@ deployment:
   image:
     repository: ghcr.io/davidshandor/wifee
     pullPolicy: IfNotPresent
-    tag: "1.0.7"
+    tag: "1.0.8"
 
 service:
   name: wifee-service
