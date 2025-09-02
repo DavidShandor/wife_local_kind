@@ -1,13 +1,13 @@
 image:
   repository: ghcr.io/davidshandor/wifee
-  tag: "1.0.3"
+  tag: "1.0.4"
   pullPolicy: IfNotPresent
 
 deployment:
   replicaCount: 1
   image:
     repository: ghcr.io/davidshandor/wifee
-    tag: "1.0.3"
+    tag: "1.0.4"
     pullPolicy: IfNotPresent
 
 service:
