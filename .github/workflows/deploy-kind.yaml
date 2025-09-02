@@ -43,7 +43,7 @@ jobs:
 
           "img=$img" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          Write-Host "Using $img:$tag"
+          Write-Host "Using ${img}:${tag}"
 
       - name: Pull image and load to kind
         run: |
