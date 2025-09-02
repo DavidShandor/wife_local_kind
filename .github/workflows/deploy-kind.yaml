@@ -28,7 +28,7 @@ jobs:
 
       - name: Read image & tag from values-dev.yaml
         id: vals
-        shell: pwsh
+        shell: powershell
         run: |
           $FILE = "i-am-doing-all-helm/wifee/values-dev.yaml"
           $content = Get-Content $FILE
@@ -44,14 +44,14 @@ jobs:
           Write-Host "Using $img:$tag"
 
       - name: Pull image and load to kind
-        shell: pwsh
+        shell: powershell
         run: |
           $full = "${{ steps.vals.outputs.img }}:${{ steps.vals.outputs.tag }}"
           docker pull $full
           kind load docker-image $full --name dev
 
       - name: Helm upgrade (local kind)
-        shell: pwsh
+        shell: powershell
         run: |
           Set-Location i-am-doing-all-helm/wifee
           helm dependency update
