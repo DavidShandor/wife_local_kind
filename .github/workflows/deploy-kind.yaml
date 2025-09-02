@@ -28,25 +28,31 @@ jobs:
 
       - name: Read image & tag from values-dev.yaml
         id: vals
-        shell: bash
+        shell: pwsh
         run: |
-          FILE="i-am-doing-all-helm/wifee/values-dev.yaml"
-          IMG=$(grep -E '^[[:space:]]*repository:' -m1 "$FILE" | awk '{print $2}')
-          TAG=$(grep -E '^[[:space:]]*tag:' -m1 "$FILE" | sed -E 's/^[^"]*"?([^"]+).*/\1/')
-          echo "img=$IMG" >> $GITHUB_OUTPUT
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "Using $IMG:$TAG"
+          $FILE = "i-am-doing-all-helm/wifee/values-dev.yaml"
+          $content = Get-Content $FILE
+
+          $imgLine = ($content | Where-Object { $_ -match '^\s*repository:\s*' } | Select-Object -First 1)
+          $tagLine = ($content | Where-Object { $_ -match '^\s*tag:\s*' }        | Select-Object -First 1)
+
+          $img = [regex]::Match($imgLine, '^\s*repository:\s*(.+)$').Groups[1].Value.Trim()
+          $tag = [regex]::Match($tagLine, '^\s*tag:\s*"?([^"]+)"?').Groups[1].Value.Trim()
+
+          "img=$img" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Using $img:$tag"
 
       - name: Pull image and load to kind
-        shell: bash
+       shell: pwsh
         run: |
-          FULL="${{ steps.vals.outputs.img }}:${{ steps.vals.outputs.tag }}"
-          docker pull "$FULL"
-          kind load docker-image "$FULL" --name dev   # אם הקלאסטר שלך נקרא dev
+          $full = "${{ steps.vals.outputs.img }}:${{ steps.vals.outputs.tag }}"
+          docker pull $full
+          kind load docker-image $full --name dev
 
       - name: Helm upgrade (local kind)
-        shell: bash
+        shell: pwsh
         run: |
-          cd i-am-doing-all-helm/wifee
+          Set-Location i-am-doing-all-helm/wifee
           helm dependency update
           helm upgrade --install wifee . -f values-dev.yaml --namespace default
