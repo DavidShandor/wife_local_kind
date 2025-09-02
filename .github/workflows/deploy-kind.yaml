@@ -1,22 +1,25 @@
 name: Deploy to kind (local)
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]          # השם של ה-CI שלך
     branches: [ main ]
-    paths:
-      - "i-am-doing-all-helm/**"   # נפרוס רק כשערכי ההלם השתנו
+    types: [ completed ]
 
 jobs:
   deploy:
-    runs-on: [self-hosted, kind]  # ה-runner שלך במחשב, עם label "kind"
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: [self-hosted, Windows, X64, wife-kind]   # ← תואם את ה-label שבראנר
     permissions:
       contents: read
-      packages: read              # למשיכת אימג' מ-GHCR
+      packages: read
     steps:
-      - name: Checkout
+      - name: Checkout repo at the CI commit
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Login to GHCR
+      - name: Docker login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -27,26 +30,23 @@ jobs:
         id: vals
         shell: bash
         run: |
-          FILE="i-am-doing-all-helm/wifee/values-dev.yaml"
+          FILE="i-am-doing-all-helm-main/wifee/values-dev.yaml"
           IMG=$(grep -E '^[[:space:]]*repository:' -m1 "$FILE" | awk '{print $2}')
           TAG=$(grep -E '^[[:space:]]*tag:' -m1 "$FILE" | sed -E 's/^[^"]*"?([^"]+).*/\1/')
           echo "img=$IMG" >> $GITHUB_OUTPUT
           echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Using $IMG:$TAG"
 
-      - name: Pull image and load into kind
+      - name: Pull image and load to kind
         shell: bash
         run: |
-          set -e
           FULL="${{ steps.vals.outputs.img }}:${{ steps.vals.outputs.tag }}"
-          echo "Pulling $FULL and loading to kind..."
           docker pull "$FULL"
-          kind load docker-image "$FULL" --name dev   # אם הקלאסטר נקרא dev
-        # kind load docker-image → טעינה ישירה לצמתים (לא מצריך imagePullSecret)
-        # ר' התיעוד  :contentReference[oaicite:7]{index=7}
+          kind load docker-image "$FULL" --name dev   # אם הקלאסטר שלך נקרא dev
 
-      - name: Helm upgrade on local kind
+      - name: Helm upgrade (local kind)
         shell: bash
         run: |
-          cd i-am-doing-all-helm/wifee
+          cd i-am-doing-all-helm-main/wifee
           helm dependency update
           helm upgrade --install wifee . -f values-dev.yaml --namespace default
