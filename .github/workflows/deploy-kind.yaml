@@ -35,11 +35,19 @@ jobs:
       # <<< חשוב: לייצא kubeconfig של kind ולהשתמש בו >>>
       - name: Prepare kubeconfig for kind (dev)
         run: |
+          $cfg = Join-Path $env:RUNNER_TEMP 'kubeconfig'
           kind get clusters
-          kind export kubeconfig --name dev --kubeconfig "$env:RUNNER_TEMP\kubeconfig"
-          "KUBECONFIG=$env:RUNNER_TEMP\kubeconfig" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          kubectl config current-context
+          kind export kubeconfig --name dev --kubeconfig $cfg
+
+          # להשתמש בקובץ עכשיו
+          $env:KUBECONFIG = $cfg
+          kubectl config get-contexts
+          kubectl config use-context kind-dev
           kubectl cluster-info
+
+          # לשימוש בשלבים הבאים
+          "KUBECONFIG=$cfg" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
 
       - name: Helm upgrade (local kind)
         run: |
