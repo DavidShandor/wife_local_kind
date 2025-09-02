@@ -1,0 +1,59 @@
+services:
+  app:
+    build: .
+    container_name: app
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/
+    depends_on:
+      - mongodb
+    networks:
+      - db-network
+      - frontend-network
+  
+  mongodb:
+    image: mongo:latest
+    container_name: mongo
+    volumes:
+      - mongodb_data:/data/db
+      - ./data:/data
+    networks:
+      - db-network
+  
+  nginx:
+    # image: nginx:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.nginx
+    container_name: nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - app
+    # volumes:
+    #   - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    #   - ./static:/static
+    networks:
+      - frontend-network
+      - test-network
+      # - jenkins
+  
+  e2e-tests:
+    image: e2e-tests
+    container_name: e2e-tests
+    depends_on:
+      - nginx
+    networks:
+      - test-network
+      # - jenkins
+
+volumes:
+  mongodb_data:
+
+networks:
+  db-network:
+    driver: bridge
+  frontend-network:
+    driver: bridge
+  test-network:
+    driver: bridge
+  # jenkins:

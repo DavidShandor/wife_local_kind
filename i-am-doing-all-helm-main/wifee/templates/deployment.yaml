@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.app.name }}
+  labels:
+    {{- toYaml .Values.app.labels | nindent 4 }}
+spec:
+  replicas: {{ .Values.deployment.replicas }}
+  selector:
+    matchLabels:
+      {{- toYaml .Values.app.labels | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- toYaml .Values.app.labels | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range . }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
+      containers:
+        - name: {{ .Values.app.name }}
+          image: "{{ .Values.deployment.image.repository }}:{{ .Values.deployment.image.tag }}"
+          imagePullPolicy: {{ .Values.deployment.image.pullPolicy | default "IfNotPresent" }}
+          ports:
+            - containerPort: {{ .Values.app.port }}
+
+          {{- $hasSecret := and .Values.secrets .Values.secrets.enabled }}
+          {{- $hasConfig := and .Values.config .Values.config.enabled }}
+          {{- if or $hasSecret $hasConfig }}
+          envFrom:
+            {{- if $hasSecret }}
+            - secretRef:
+                name: {{ .Values.secrets.name }}
+                optional: true
+            {{- end }}
+            {{- if $hasConfig }}
+            - configMapRef:
+                name: {{ .Values.config.name }}
+                optional: true
+            {{- end }}
+          {{- end }}

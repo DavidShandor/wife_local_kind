@@ -1,0 +1,16 @@
+{{- if and (.Values.certManager.enabled) (.Values.ingress.enabled) (gt (len (.Values.ingress.tls | default (list))) 0) -}}
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: cluster-issuer-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: davidshandor15@gmail.com
+    privateKeySecretRef:
+      name: wifee-cluster-key
+    solvers:
+      - http01:
+          ingress:
+            class: nginx
+{{- end }}

@@ -1,0 +1,19 @@
+{{- $tls := .Values.ingress.tls | default (list) -}}
+{{- if and .Values.ingress.enabled (gt (len $tls) 0) -}}
+{{- range $i, $item := $tls }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ $item.secretName }}
+spec:
+  secretName: {{ $item.secretName }}
+  issuerRef:
+    name: {{ $.Values.certManager.issuerName | default "cluster-issuer-prod" }}
+    kind: {{ $.Values.certManager.issuerKind | default "ClusterIssuer" }}
+  dnsNames:
+  {{- range $item.hosts }}
+    - {{ . | quote }}
+  {{- end }}
+---
+{{- end }}
+{{- end }}

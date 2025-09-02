@@ -1,0 +1,62 @@
+app:
+  name: "wifee"
+  port: 5000
+  isMongo: true
+  labels:
+    app: wifee
+
+deployment:
+  replicas: 2
+  image:
+    repository: 644435390668.dkr.ecr.us-east-1.amazonaws.com/shandor-develeap
+    pullPolicy: IfNotPresent
+    tag: "1.0.10"
+
+service:
+  name: wifee-service
+  type: ClusterIP
+  port: 80
+
+configMap:
+  name: wifee-conf
+  data:
+    PERSISTENCE: "false"
+    LOG_LEVEL: "debug"
+
+secret:
+  name: wifee-secret
+  type: Opaque
+
+ingress:
+  enabled: false
+  className: nginx
+  # רשימת hosts (לא map)
+  hosts:
+    - host: example.local
+      paths:
+        - path: /
+          pathType: Prefix
+  # רשימת tls (לא map)
+  tls: []
+
+
+mongodb:
+  architecture: replicaset 
+  replicaCount: 2 
+  auth:
+    enabled: true 
+    rootUser: "root"
+    rootPassword: "admin"
+  persistence:
+    enabled: true
+    size: 3Gi
+
+cronjob:
+  schedule: "0 0 * * *"
+
+certManager:
+  issuerName: cluster-issuer-prod
+  issuerKind: ClusterIssuer
+
+serviceMonitor:
+  enabled: false

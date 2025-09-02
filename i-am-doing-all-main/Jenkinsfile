@@ -1,0 +1,146 @@
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+
+        timeout(unit: 'MINUTES', time: 10)
+
+        gitLabConnection("gitlab-new-connection") 
+    }
+
+    triggers {
+        gitlab(
+            triggerOnPush: true,
+            triggerOnMergeRequest: true,
+            branchFilterType: 'All'
+        )
+    }
+
+    environment {
+        DOCKER_IMAGE = 'wifee'
+        GITLAB_REPO = 'gitlab.com/shandor2/i-am-doing-all.git' 
+        GITOPS_REPO = 'gitlab.com/shandor2/i-am-doing-all-helm.git'
+        AWS_REGION = 'us-east-1'
+        ECR_REGISTRY = '644435390668.dkr.ecr.us-east-1.amazonaws.com'
+        ECR_REPOSITORY = 'shandor-develeap'
+        IMAGE_TAG = 'latest'
+    }
+
+    stages {
+
+        stage('Calculate & Set Version'){
+            when {
+                branch 'main'
+            }
+            steps {
+                script {
+                    
+                    def version = "1.0"
+                    
+                    withCredentials([usernamePassword(credentialsId: "gitlab", usernameVariable: "GL_USER", passwordVariable: "GL_PASS")]) {
+                        sh "git fetch --tags https://${GL_USER}:${GL_PASS}@${GITLAB_REPO}"
+                    
+                        previousTag = sh(script: "git describe --tags --abbrev=0 | grep -E '^$version' || true", returnStdout: true).trim() 
+                        echo "================ Previous tag: $previousTag ===================="
+                        if (!previousTag) {
+                            patch = "0"
+                        } else {
+                            patch = (previousTag.tokenize(".")[2].toInteger() + 1).toString()
+                        }
+                        IMAGE_TAG = version + "." + patch
+                        echo "================== NEW TAG: $IMAGE_TAG =================="
+                    }
+                }
+            }
+        }
+        
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    sh """
+                    echo ${IMAGE_TAG}
+                    docker build -t ${DOCKER_IMAGE}:${IMAGE_TAG} .
+                    """
+                }
+            }
+        }
+
+        // stage('Run Unit Tests') {
+        //     steps {
+        //         sh 'docker run --rm ${DOCKER_IMAGE}:${BUILD_NUMBER} python -m unittest discover tests'
+        //     }
+        // }
+
+   
+        stage('Run E2E Tests') {
+            steps {
+
+                sh 'docker build -t e2e-tests -f Dockerfile.test .'
+               // Run Docker Compose
+               sh """
+                docker compose up -d --build
+                sleep 5
+                docker compose run --rm e2e-tests
+                docker compose down
+               """
+            }
+        }
+
+        stage("Tag") {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: "gitlab", usernameVariable: "GL_USER", passwordVariable: "GL_PASS")]) {
+                        sh "git clean -f -x"
+                        sh "git config --global user.email 'jenkins@jenkins.io'"
+                        sh "git config --global user.name 'Jenkins'"
+                        sh "git tag -a ${IMAGE_TAG} -m 'version ${IMAGE_TAG}'"
+                        sh "git push https://${GL_USER}:${GL_PASS}@${GITLAB_REPO} --tag"     
+                    }
+                }
+            }
+        }
+
+        stage('Publish to ECR') {
+            steps {
+                script {
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws_creds']]) {
+                        // Login to ECR
+                        sh """aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                        docker tag ${DOCKER_IMAGE}:${IMAGE_TAG} ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
+                        docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"""
+                    }
+                }
+            }
+        }
+
+   stage('Deploy') {
+            when {
+                branch 'main'
+            }
+            steps {
+                script {
+                     withCredentials([usernamePassword(credentialsId: "gitlab", usernameVariable: "GL_USER", passwordVariable: "GL_PASS")]) {
+                       sh """
+                        git clone https://${GL_USER}:${GL_PASS}@${GITOPS_REPO}
+                        cd i-am-doing-all-helm
+                        git config user.email "jenkins@example.com"
+                        git config user.name "Jenkins"
+                        sed -i 's/tag:.*\$/tag: \"${IMAGE_TAG}\"/' wifee/values.yaml
+                        git add wifee/values.yaml
+                        git commit -am "Update image tag to ${IMAGE_TAG}"
+                        git push https://${GL_USER}:${GL_PASS}@${GITOPS_REPO}
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            sh "docker compose down"
+            cleanWs()
+        }
+    }
+}

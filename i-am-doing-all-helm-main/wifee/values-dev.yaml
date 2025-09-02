@@ -1,0 +1,57 @@
+image:
+  repository: iamdoingall
+  tag: dev
+  pullPolicy: IfNotPresent
+
+deployment:
+  replicaCount: 1
+  image:
+    repository: iamdoingall
+    tag: dev
+    pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 5000
+
+serviceMonitor:
+  enabled: false
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: local.wifee
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []   # כשתרצה TLS: ספק רשומות עם secretName+hosts
+
+mongodb:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: true
+    rootUser: root
+    rootPassword: devpass
+  persistence:
+    enabled: false
+
+
+certManager:
+  enabled: false
+  issuerName: cluster-issuer-prod
+  issuerKind: ClusterIssuer
+
+secrets:
+  enabled: true
+  name: wifee-secret
+  data:
+    MONGO_URI: "mongodb://root:devpass@wifee-mongodb:27017/wife_todo_list?authSource=admin"
+    
+config:
+  enabled: true
+  name: wifee-conf
+  data:
+    LOG_LEVEL: "info"

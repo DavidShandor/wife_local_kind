@@ -1,0 +1,9 @@
+FROM ubuntu:latest
+
+RUN apt-get update && apt-get install -y curl jq
+
+COPY e2e_tests.sh /e2e_tests.sh
+
+RUN chmod +x /e2e_tests.sh
+
+ENTRYPOINT ["/e2e_tests.sh"]
