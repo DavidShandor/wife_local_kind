@@ -30,7 +30,7 @@ jobs:
         id: vals
         shell: bash
         run: |
-          FILE="i-am-doing-all-helm-main/wifee/values-dev.yaml"
+          FILE="i-am-doing-all-helm/wifee/values-dev.yaml"
           IMG=$(grep -E '^[[:space:]]*repository:' -m1 "$FILE" | awk '{print $2}')
           TAG=$(grep -E '^[[:space:]]*tag:' -m1 "$FILE" | sed -E 's/^[^"]*"?([^"]+).*/\1/')
           echo "img=$IMG" >> $GITHUB_OUTPUT
@@ -47,6 +47,6 @@ jobs:
       - name: Helm upgrade (local kind)
         shell: bash
         run: |
-          cd i-am-doing-all-helm-main/wifee
+          cd i-am-doing-all-helm/wifee
           helm dependency update
           helm upgrade --install wifee . -f values-dev.yaml --namespace default
