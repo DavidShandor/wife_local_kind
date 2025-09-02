@@ -2,57 +2,52 @@ name: Deploy to kind (local)
 
 on:
   workflow_run:
-    workflows: ["CI"]          # השם של ה-CI שלך
+    workflows: ["CI"]
     branches: [ main ]
     types: [ completed ]
 
 jobs:
   deploy:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    runs-on: [self-hosted, Windows, X64, wife-kind]   # ← תואם את ה-label שבראנר
+    runs-on: [self-hosted, Windows, X64, wife-kind]
     defaults:
       run:
         shell: 'powershell -NoProfile -ExecutionPolicy Bypass -File {0}'
     permissions:
       contents: read
       packages: read
+
     steps:
       - name: Checkout repo at the CI commit
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Docker login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
+      # קורא את ה-repository וה-tag מתוך values-dev.yaml (לוג לעצמי בלבד)
       - name: Read image & tag from values-dev.yaml
         id: vals
         run: |
           $FILE = "i-am-doing-all-helm/wifee/values-dev.yaml"
-          $content = Get-Content $FILE
+          if (!(Test-Path $FILE)) { Write-Error "File not found: $FILE"; exit 1 }
 
-          $imgLine = ($content | Where-Object { $_ -match '^\s*repository:\s*' } | Select-Object -First 1)
-          $tagLine = ($content | Where-Object { $_ -match '^\s*tag:\s*' }        | Select-Object -First 1)
+          $content = Get-Content -Raw $FILE
+          $img = [regex]::Match($content,'(?m)^\s*repository:\s*(.+)$').Groups[1].Value.Trim()
+          $tag = [regex]::Match($content,'(?m)^\s*tag:\s*"?([^"#]+)"?').Groups[1].Value.Trim()
 
-          $img = [regex]::Match($imgLine, '^\s*repository:\s*(.+)$').Groups[1].Value.Trim()
-          $tag = [regex]::Match($tagLine, '^\s*tag:\s*"?([^"]+)"?').Groups[1].Value.Trim()
+          "img=$img" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host ("Using {0}:{1}" -f $img, $tag)
 
-          "img=$img" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          Write-Host "Using ${img}:${tag}"
-
-      - name: Pull image and load to kind
-        run: |
-          $full = "${{ steps.vals.outputs.img }}:${{ steps.vals.outputs.tag }}"
-          docker pull $full
-          kind load docker-image $full --name dev
-
+      # דיפלוי: Kubernetes ימשוך את האימג' הציבורי מ-GHCR
       - name: Helm upgrade (local kind)
         run: |
           Set-Location i-am-doing-all-helm/wifee
           helm dependency update
-          helm upgrade --install wifee . -f values-dev.yaml --namespace default
+          helm upgrade --install wifee . -f values-dev.yaml `
+            --namespace default `
+            --set image.pullPolicy=Always
+
+      # דיבאג קצר (לא חובה)
+      - name: Show pods
+        run: |
+          kubectl get pods -n default -o wide
