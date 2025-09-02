@@ -44,7 +44,7 @@ jobs:
           Write-Host "Using $img:$tag"
 
       - name: Pull image and load to kind
-       shell: pwsh
+        shell: pwsh
         run: |
           $full = "${{ steps.vals.outputs.img }}:${{ steps.vals.outputs.tag }}"
           docker pull $full
