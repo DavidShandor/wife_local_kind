@@ -1,14 +1,22 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Values.service.name }}
-  labels: 
-    {{ toYaml .Values.app.labels | indent 4  }}
+  name: {{ .Values.service.name | default .Chart.Name }}
+  labels:
+{{- if .Values.app.labels }}
+{{ toYaml .Values.app.labels | nindent 4 }}
+{{- else }}
+    app.kubernetes.io/name: {{ .Values.app.name | default .Chart.Name }}
+{{- end }}
 spec:
-  type: {{ .Values.service.type }}
+  type: {{ .Values.service.type | default "ClusterIP" }}
   ports:
-    - port: {{ .Values.service.port }}
-      name: web
-      targetPort: {{ .Values.app.port }}
+    - name: {{ .Values.service.portName | default "web" }}
+      port: {{ .Values.service.port | default 80 }}
+      targetPort: {{ .Values.app.port | default 5000 }}
   selector:
-    {{ toYaml .Values.app.labels | indent 4  }}
+{{- if .Values.app.labels }}
+{{ toYaml .Values.app.labels | nindent 4 }}
+{{- else }}
+    app.kubernetes.io/name: {{ .Values.app.name | default .Chart.Name }}
+{{- end }}

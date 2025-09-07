@@ -1,22 +1,29 @@
-image:
-  repository: ghcr.io/davidshandor/wifee
-  tag: "1.0.12"
-  pullPolicy: IfNotPresent
+app:
+  name: wifee
+  port: 5000
+  # labels:
+  #   app.kubernetes.io/name: wifee
+  #   app.kubernetes.io/instance: wifee
+
 
 deployment:
-  replicaCount: 1
+  replicas: 1 
   image:
     repository: ghcr.io/davidshandor/wifee
     tag: "1.0.12"
     pullPolicy: IfNotPresent
 
 service:
+  name: wifee     
   type: ClusterIP
   port: 80
-  targetPort: 5000
+  portName: web
 
 serviceMonitor:
-  enabled: false
+  enabled: true
+  interval: 15s
+  path: /metrics
+  
 
 ingress:
   enabled: true
@@ -55,3 +62,18 @@ config:
   name: wifee-conf
   data:
     LOG_LEVEL: "info"
+
+env:
+  - name: REDIS_HOST
+    value: redis-master.data.svc.cluster.local
+  - name: REDIS_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: redis
+        key: redis-password
+  - name: OTEL_SERVICE_NAME
+    value: api
+  - name: OTEL_RESOURCE_ATTRIBUTES
+    value: deployment.environment=dev,service.version=1.0.0
+  - name: OTEL_EXPORTER_OTLP_ENDPOINT
+    value: http://otel-collector.otel:4318

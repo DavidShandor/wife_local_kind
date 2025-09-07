@@ -1,0 +1,25 @@
+grafana:
+  adminUser: admin
+  adminPassword: admin123
+  service:
+    type: ClusterIP
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts: [ "grafana.localdev.me" ]
+    path: /
+    pathType: Prefix
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      access: proxy
+      url: http://loki.loki:3100
+    - name: Tempo
+      type: tempo
+      access: proxy
+      url: http://tempo.tracing:3100
+
+prometheus:
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false

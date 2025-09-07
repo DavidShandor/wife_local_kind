@@ -1,0 +1,13 @@
+tempo:
+  storage:
+    trace:
+      backend: local
+      wal:
+        path: /tmp/tempo/wal
+      local:
+        path: /tmp/tempo/blocks
+  receivers:
+    otlp:
+      protocols:
+        http:
+        grpc:

@@ -5,11 +5,34 @@ import os
 from bson import ObjectId
 from prometheus_flask_exporter import PrometheusMetrics
 from prometheus_client import Counter, make_wsgi_app, Gauge, Histogram
+from opentelemetry import trace
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
+
+
+resource = Resource(attributes={
+    "service.name": "flask-api",
+    "service.version": "1.0.0",
+    "deployment.environment": "dev"
+})
+
+trace.set_tracer_provider(TracerProvider(resource=resource))
+tracer_provider = trace.get_tracer_provider()
+otlp_exporter = OTLPSpanExporter(endpoint="http://otel-collector.otel:4318/v1/traces")
+tracer_provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
 
 app = Flask(__name__)
 # hello world!
 # connect to Prometheus Metrics
-metrics = PrometheusMetrics(app)
+metrics = PrometheusMetrics(app, path="/metrics")
+
+# Auto-instrumentation
+FlaskInstrumentor().instrument_app(app)
+RequestsInstrumentor().instrument()
 
 request_counter = Counter('requests_total', 'Total number of requests')
 contacts_count_gauge = Gauge('contacts_total', 'Total number of contacts in the database')

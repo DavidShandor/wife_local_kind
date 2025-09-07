@@ -25,7 +25,12 @@ spec:
           image: "{{ .Values.deployment.image.repository }}:{{ .Values.deployment.image.tag }}"
           imagePullPolicy: {{ .Values.deployment.image.pullPolicy | default "IfNotPresent" }}
           ports:
-            - containerPort: {{ .Values.app.port }}
+            - name: {{ .Values.service.portName | default "web" }}
+              containerPort: {{ .Values.app.port }}
+          {{- if .Values.env }}
+          env:
+{{ toYaml .Values.env | nindent 12 }}
+          {{- end }}
 
           {{- $hasSecret := and .Values.secrets .Values.secrets.enabled }}
           {{- $hasConfig := and .Values.config .Values.config.enabled }}

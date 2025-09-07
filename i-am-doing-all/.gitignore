@@ -3,3 +3,5 @@
 *.pem
 *.zip
 Jenkinsfile.*
+node_modules
+node_modules/*

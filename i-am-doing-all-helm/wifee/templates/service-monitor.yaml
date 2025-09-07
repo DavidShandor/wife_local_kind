@@ -2,13 +2,26 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: {{ .Values.service.name }}
+  name: {{ .Values.service.name | default .Chart.Name }}
   labels:
-    {{ toYaml .Values.app.labels | indent 4  }}
+{{- if .Values.app.labels }}
+{{ toYaml .Values.app.labels | nindent 4 }}
+{{- else }}
+    app.kubernetes.io/name: {{ .Values.app.name | default .Chart.Name }}
+{{- end }}
 spec:
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
   selector:
     matchLabels:
-      {{ toYaml .Values.app.labels | indent 4  }}
+{{- if .Values.app.labels }}
+{{ toYaml .Values.app.labels | nindent 6 }}
+{{- else }}
+      app.kubernetes.io/name: {{ .Values.app.name | default .Chart.Name }}
+{{- end }}
   endpoints:
-  - port: web
+    - port: {{ .Values.service.portName | default "web" }}
+      path: {{ .Values.serviceMonitor.path | default "/metrics" }}
+      interval: {{ .Values.serviceMonitor.interval | default "15s" }}
 {{- end }}
