@@ -20,7 +20,7 @@ service:
   portName: web
 
 serviceMonitor:
-  enabled: true
+  enabled: false
   interval: 15s
   path: /metrics
   
@@ -63,17 +63,17 @@ config:
   data:
     LOG_LEVEL: "info"
 
-env:
-  - name: REDIS_HOST
-    value: redis-master.data.svc.cluster.local
-  - name: REDIS_PASSWORD
-    valueFrom:
-      secretKeyRef:
-        name: redis
-        key: redis-password
-  - name: OTEL_SERVICE_NAME
-    value: api
-  - name: OTEL_RESOURCE_ATTRIBUTES
-    value: deployment.environment=dev,service.version=1.0.0
-  - name: OTEL_EXPORTER_OTLP_ENDPOINT
-    value: http://otel-collector.otel:4318
+# env:
+#   - name: REDIS_HOST
+#     value: redis-master.data.svc.cluster.local
+#   - name: REDIS_PASSWORD
+#     valueFrom:
+#       secretKeyRef:
+#         name: redis
+#         key: redis-password
+#   - name: OTEL_SERVICE_NAME
+#     value: api
+#   - name: OTEL_RESOURCE_ATTRIBUTES
+#     value: deployment.environment=dev,service.version=1.0.0
+#   - name: OTEL_EXPORTER_OTLP_ENDPOINT
+#     value: http://otel-collector.otel:4318
